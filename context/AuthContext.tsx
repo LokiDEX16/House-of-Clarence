@@ -93,7 +93,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         });
 
         if (userError) {
-          console.error('Error creating user profile:', userError);
+          console.error('Error creating user profile:', userError.message || JSON.stringify(userError));
           // Don't throw - user auth succeeded, just profile creation failed
         }
       }

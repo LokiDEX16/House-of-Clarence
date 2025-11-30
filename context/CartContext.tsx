@@ -103,8 +103,8 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
         });
 
         if (createUserError) {
-          console.error('Error creating user record:', createUserError);
-          throw new Error('Failed to create user profile');
+          console.error('Error creating user record:', createUserError.message || JSON.stringify(createUserError));
+          throw new Error(`Failed to create user profile: ${createUserError.message || 'Unknown error'}`);
         }
       }
 
