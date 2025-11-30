@@ -2,39 +2,84 @@
 
 import { useAuth } from '@/context/AuthContext';
 import { useCart } from '@/context/CartContext';
+import { supabase } from '@/lib/supabase';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
+
+interface UserProfile {
+  full_name: string;
+  phone: string;
+  address: string;
+  city: string;
+  state: string;
+  postal_code: string;
+  country: string;
+}
 
 export default function CheckoutPage() {
   const { user, loading: authLoading } = useAuth();
   const { cart, getCartTotal, clearCart } = useCart();
   const router = useRouter();
 
+  const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
   const [customizationComments, setCustomizationComments] = useState('');
-  const [referenceImages, setReferenceImages] = useState<string[]>(['']);
+  const [referenceImages, setReferenceImages] = useState<File[]>([]);
   const [shippingAddress, setShippingAddress] = useState('');
   const [phone, setPhone] = useState('');
+  const [fullName, setFullName] = useState('');
+  const [city, setCity] = useState('');
+  const [state, setState] = useState('');
+  const [postalCode, setPostalCode] = useState('');
+  const [country, setCountry] = useState('');
   const [submitting, setSubmitting] = useState(false);
+  const [loadingProfile, setLoadingProfile] = useState(true);
 
+  // Fetch user profile on mount
   useEffect(() => {
     if (!authLoading && !user) {
       router.push('/auth/login');
+    } else if (user) {
+      fetchUserProfile();
     }
   }, [user, authLoading, router]);
 
-  const handleAddImageField = () => {
-    setReferenceImages([...referenceImages, '']);
+  const fetchUserProfile = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('users')
+        .select('*')
+        .eq('id', user?.id)
+        .single();
+
+      if (error) {
+        console.error('Error fetching user profile:', error);
+      } else if (data) {
+        setUserProfile(data);
+        // Pre-fill form with user data
+        setFullName(data.full_name || '');
+        setPhone(data.phone || '');
+        setShippingAddress(data.address || '');
+        setCity(data.city || '');
+        setState(data.state || '');
+        setPostalCode(data.postal_code || '');
+        setCountry(data.country || '');
+      }
+    } catch (error) {
+      console.error('Error loading profile:', error);
+    } finally {
+      setLoadingProfile(false);
+    }
   };
 
-  const handleRemoveImageField = (index: number) => {
+  const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files) {
+      setReferenceImages(Array.from(e.target.files));
+    }
+  };
+
+  const handleRemoveImage = (index: number) => {
     setReferenceImages(referenceImages.filter((_, i) => i !== index));
-  };
-
-  const handleImageChange = (index: number, value: string) => {
-    const updated = [...referenceImages];
-    updated[index] = value;
-    setReferenceImages(updated);
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -45,20 +90,57 @@ export default function CheckoutPage() {
       return;
     }
 
+    if (!shippingAddress || !phone) {
+      alert('Please fill in shipping address and phone number');
+      return;
+    }
+
     setSubmitting(true);
 
     try {
+      // Upload images to Supabase storage if any
+      let imageUrls: string[] = [];
+      if (referenceImages.length > 0) {
+        for (let i = 0; i < referenceImages.length; i++) {
+          const file = referenceImages[i];
+          const fileName = `checkout/${user.id}/${Date.now()}_${file.name}`;
+
+          const { data: uploadData, error: uploadError } = await supabase.storage
+            .from('checkout-images')
+            .upload(fileName, file);
+
+          if (uploadError) {
+            console.error('Error uploading image:', uploadError);
+            continue;
+          }
+
+          // Get public URL
+          const { data: urlData } = supabase.storage
+            .from('checkout-images')
+            .getPublicUrl(fileName);
+
+          if (urlData.publicUrl) {
+            imageUrls.push(urlData.publicUrl);
+          }
+        }
+      }
+
       const response = await fetch('/api/checkout', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           user_id: user.id,
           customization_comments: customizationComments,
-          reference_images: referenceImages.filter((img) => img.trim() !== ''),
+          reference_images: imageUrls,
           cart_items: cart,
           total_amount: getCartTotal(),
           shipping_address: shippingAddress,
           phone,
+          full_name: fullName,
+          city,
+          state,
+          postal_code: postalCode,
+          country,
         }),
       });
 
@@ -67,9 +149,8 @@ export default function CheckoutPage() {
         throw new Error(error.message || 'Failed to submit checkout');
       }
 
-      const data = await response.json();
       alert('Checkout submitted successfully!');
-      
+
       // Clear cart and redirect
       await clearCart();
       router.push('/profile');
@@ -81,7 +162,7 @@ export default function CheckoutPage() {
     }
   };
 
-  if (authLoading) {
+  if (authLoading || loadingProfile) {
     return (
       <div className="flex justify-center items-center h-64">
         <span className="loading loading-spinner loading-lg text-primary"></span>
@@ -125,17 +206,67 @@ export default function CheckoutPage() {
                 </div>
               </div>
 
+              {/* Full Name */}
+              <div className="bg-base-800 rounded-lg border border-base-700 p-6">
+                <h2 className="text-2xl font-bold mb-4 text-base-50">Full Name</h2>
+                <input
+                  type="text"
+                  value={fullName}
+                  onChange={(e) => setFullName(e.target.value)}
+                  placeholder="Enter your full name..."
+                  className="input input-bordered w-full bg-base-700 text-base-50"
+                  required
+                />
+              </div>
+
               {/* Shipping Address */}
               <div className="bg-base-800 rounded-lg border border-base-700 p-6">
                 <h2 className="text-2xl font-bold mb-4 text-base-50">Shipping Address</h2>
                 <textarea
                   value={shippingAddress}
                   onChange={(e) => setShippingAddress(e.target.value)}
-                  placeholder="Enter your full shipping address..."
+                  placeholder="Enter your street address..."
                   className="textarea textarea-bordered w-full bg-base-700 text-base-50"
-                  rows={4}
+                  rows={3}
                   required
                 />
+              </div>
+
+              {/* City, State, Postal Code, Country */}
+              <div className="bg-base-800 rounded-lg border border-base-700 p-6">
+                <h2 className="text-2xl font-bold mb-4 text-base-50">Address Details</h2>
+                <div className="grid grid-cols-2 gap-4 mb-4">
+                  <input
+                    type="text"
+                    value={city}
+                    onChange={(e) => setCity(e.target.value)}
+                    placeholder="City"
+                    className="input input-bordered bg-base-700 text-base-50"
+                  />
+                  <input
+                    type="text"
+                    value={state}
+                    onChange={(e) => setState(e.target.value)}
+                    placeholder="State/Province"
+                    className="input input-bordered bg-base-700 text-base-50"
+                  />
+                </div>
+                <div className="grid grid-cols-2 gap-4">
+                  <input
+                    type="text"
+                    value={postalCode}
+                    onChange={(e) => setPostalCode(e.target.value)}
+                    placeholder="Postal Code"
+                    className="input input-bordered bg-base-700 text-base-50"
+                  />
+                  <input
+                    type="text"
+                    value={country}
+                    onChange={(e) => setCountry(e.target.value)}
+                    placeholder="Country"
+                    className="input input-bordered bg-base-700 text-base-50"
+                  />
+                </div>
               </div>
 
               {/* Phone Number */}
@@ -167,37 +298,34 @@ export default function CheckoutPage() {
               <div className="bg-base-800 rounded-lg border border-base-700 p-6">
                 <h2 className="text-2xl font-bold mb-4 text-base-50">Reference Images</h2>
                 <p className="text-base-300 mb-4 text-sm">
-                  Add URLs to reference images for your customization
+                  Upload reference images for your customization (JPG, PNG, etc.)
                 </p>
-                <div className="space-y-3">
-                  {referenceImages.map((image, index) => (
-                    <div key={index} className="flex gap-2">
-                      <input
-                        type="url"
-                        value={image}
-                        onChange={(e) => handleImageChange(index, e.target.value)}
-                        placeholder="https://example.com/image.jpg"
-                        className="input input-bordered flex-1 bg-base-700 text-base-50"
-                      />
-                      {referenceImages.length > 1 && (
-                        <button
-                          type="button"
-                          onClick={() => handleRemoveImageField(index)}
-                          className="btn btn-error btn-outline btn-sm"
-                        >
-                          Remove
-                        </button>
-                      )}
+                <input
+                  type="file"
+                  multiple
+                  accept="image/*"
+                  onChange={handleImageChange}
+                  className="file-input file-input-bordered w-full bg-base-700 text-base-50"
+                />
+                {referenceImages.length > 0 && (
+                  <div className="mt-4">
+                    <p className="text-base-300 text-sm mb-3">Selected files:</p>
+                    <div className="space-y-2">
+                      {referenceImages.map((file, index) => (
+                        <div key={index} className="flex justify-between items-center bg-base-700 p-2 rounded">
+                          <span className="text-base-300 text-sm">{file.name}</span>
+                          <button
+                            type="button"
+                            onClick={() => handleRemoveImage(index)}
+                            className="btn btn-error btn-outline btn-xs"
+                          >
+                            Remove
+                          </button>
+                        </div>
+                      ))}
                     </div>
-                  ))}
-                </div>
-                <button
-                  type="button"
-                  onClick={handleAddImageField}
-                  className="btn btn-ghost btn-sm mt-3 w-full"
-                >
-                  + Add Another Image
-                </button>
+                  </div>
+                )}
               </div>
 
               {/* Submit Button */}
