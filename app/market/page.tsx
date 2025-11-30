@@ -41,7 +41,7 @@ export default function MarketPage() {
   );
 
   const handleAddToCart = async (productId: string) => {
-    alert('Add to cart functionality coming soon');
+    // Cart functionality is now handled in ProductCard component
   };
 
   return (

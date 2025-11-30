@@ -2,9 +2,11 @@
 
 import Link from 'next/link';
 import { useAuth } from '@/context/AuthContext';
+import { useCart } from '@/context/CartContext';
 
 export default function Navbar() {
   const { user, logout } = useAuth();
+  const { cartCount } = useCart();
 
   const handleLogout = async () => {
     await logout();
@@ -33,7 +35,9 @@ export default function Navbar() {
         {/* Right Side */}
         <div className="flex-1 flex justify-end items-center gap-4">
           <Link href="/cart" className="btn btn-ghost btn-circle indicator">
-            <span className="indicator-item badge badge-sm badge-primary">3</span>
+            {cartCount > 0 && (
+              <span className="indicator-item badge badge-sm badge-primary">{cartCount}</span>
+            )}
             <svg
               xmlns="http://www.w3.org/2000/svg"
               className="h-6 w-6"

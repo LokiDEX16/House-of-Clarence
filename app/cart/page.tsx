@@ -1,62 +1,29 @@
 'use client';
 
 import { useAuth } from '@/context/AuthContext';
+import { useCart } from '@/context/CartContext';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import CartItem from '@/components/CartItem';
-import { useState, useEffect } from 'react';
-import { supabase } from '@/lib/supabase';
-
-interface CartItemType {
-  id: string;
-  product_id: string;
-  name: string;
-  price: number;
-  quantity: number;
-  image: string;
-}
+import { useEffect } from 'react';
 
 export default function CartPage() {
   const { user, loading: authLoading } = useAuth();
+  const { cart, loading: cartLoading, removeFromCart, updateQuantity, getCartTotal } = useCart();
   const router = useRouter();
-  const [cartItems, setCartItems] = useState<CartItemType[]>([]);
-  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     if (!authLoading && !user) {
       router.push('/auth/login');
-    } else if (user) {
-      fetchCartItems();
     }
-  }, [user, authLoading]);
+  }, [user, authLoading, router]);
 
-  const fetchCartItems = async () => {
-    if (!user) return;
-    try {
-      // TODO: Replace with actual cart data fetched from Supabase
-      // This is a placeholder for demonstration
-      setCartItems([]);
-    } catch (error) {
-      console.error('Error fetching cart:', error);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleUpdateQuantity = async (itemId: string, quantity: number) => {
-    // TODO: Implement update quantity
-  };
-
-  const handleRemove = async (itemId: string) => {
-    // TODO: Implement remove item
-  };
-
-  const subtotal = cartItems.reduce((sum, item) => sum + item.price * item.quantity, 0);
+  const subtotal = getCartTotal();
   const shipping = subtotal > 500 ? 0 : 50;
   const tax = subtotal * 0.1;
   const total = subtotal + shipping + tax;
 
-  if (authLoading || loading) {
+  if (authLoading || cartLoading) {
     return (
       <div className="flex justify-center items-center h-64">
         <span className="loading loading-spinner loading-lg text-primary"></span>
@@ -71,14 +38,14 @@ export default function CartPage() {
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
         {/* Cart Items */}
         <div className="lg:col-span-2">
-          {cartItems.length > 0 ? (
+          {cart.length > 0 ? (
             <div className="space-y-4">
-              {cartItems.map((item) => (
+              {cart.map((item) => (
                 <CartItem
                   key={item.id}
-                  {...item}
-                  onUpdateQuantity={handleUpdateQuantity}
-                  onRemove={handleRemove}
+                  product={item}
+                  onUpdateQuantity={(quantity) => updateQuantity(item.id, quantity)}
+                  onRemove={() => removeFromCart(item.id)}
                 />
               ))}
             </div>
@@ -117,7 +84,7 @@ export default function CartPage() {
               <span>${total.toFixed(2)}</span>
             </div>
 
-            <button className="btn btn-primary w-full mb-3" disabled={cartItems.length === 0}>
+            <button className="btn btn-primary w-full mb-3" disabled={cart.length === 0}>
               Proceed to Checkout
             </button>
 
@@ -125,7 +92,7 @@ export default function CartPage() {
               Continue Shopping
             </Link>
 
-            {subtotal < 500 && (
+            {subtotal < 500 && subtotal > 0 && (
               <div className="alert alert-info mt-6 text-sm">
                 <span>Free shipping on orders over $500! Add ${(500 - subtotal).toFixed(2)} more.</span>
               </div>

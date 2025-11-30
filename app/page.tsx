@@ -42,8 +42,7 @@ export default function Home() {
   };
 
   const handleAddToCart = async (productId: string) => {
-    // TODO: Implement add to cart logic with cart context
-    alert('Add to cart functionality coming soon');
+    // Cart functionality is now handled in ProductCard component
   };
 
   return (

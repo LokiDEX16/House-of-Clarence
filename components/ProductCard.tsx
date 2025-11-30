@@ -1,3 +1,8 @@
+'use client';
+
+import { useState } from 'react';
+import { useCart } from '@/context/CartContext';
+
 interface Product {
   id: string;
   name: string;
@@ -9,10 +14,33 @@ interface Product {
 
 interface ProductCardProps {
   product: Product;
-  onAddToCart: (productId: string) => void;
+  onAddToCart?: (productId: string) => void;
 }
 
 export default function ProductCard({ product, onAddToCart }: ProductCardProps) {
+  const { addToCart } = useCart();
+  const [adding, setAdding] = useState(false);
+  const [success, setSuccess] = useState(false);
+
+  const handleAddToCart = async () => {
+    setAdding(true);
+    try {
+      await addToCart({
+        id: product.id,
+        name: product.name,
+        price: product.price,
+        image_url: product.image_url,
+      });
+      setSuccess(true);
+      setTimeout(() => setSuccess(false), 2000);
+    } catch (error) {
+      console.error('Failed to add to cart:', error);
+      alert('Failed to add item to cart');
+    } finally {
+      setAdding(false);
+    }
+  };
+
   return (
     <div className="card bg-base-800 shadow-xl hover:shadow-2xl transition-shadow border border-base-700">
       {/* Image */}
@@ -52,10 +80,13 @@ export default function ProductCard({ product, onAddToCart }: ProductCardProps) 
         {/* Add to Cart Button */}
         <div className="card-actions justify-end">
           <button
-            className="btn btn-primary w-full"
-            onClick={() => onAddToCart(product.id)}
+            className={`btn w-full ${
+              success ? 'btn-success' : 'btn-primary'
+            } ${adding ? 'loading' : ''}`}
+            onClick={handleAddToCart}
+            disabled={adding}
           >
-            Add to Cart
+            {success ? '✓ Added' : adding ? 'Adding...' : 'Add to Cart'}
           </button>
         </div>
       </div>
