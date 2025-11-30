@@ -171,6 +171,21 @@ INSERT INTO public.products (name, description, price, category, image_url, rati
 ('Geometric Wall Sculpture', 'Modern geometric wall sculpture in brushed brass', 950.00, 'Art', 'https://images.unsplash.com/photo-1578926314433-b3027ca2b9e6.jpg', 4.6, 7, 4),
 ('Premium Area Rug', 'Hand-woven area rug with luxurious patterns and natural fibers', 1800.00, 'Decor', 'https://images.unsplash.com/photo-1578500494e246fa0ddc8aaeaebc5f8.jpg', 4.8, 11, 3);
 
+-- Checkout Details Table
+CREATE TABLE IF NOT EXISTS public.checkout_details (
+  id UUID DEFAULT uuid_generate_v4() PRIMARY KEY,
+  user_id UUID NOT NULL REFERENCES public.users(id) ON DELETE CASCADE,
+  customization_comments TEXT,
+  reference_images TEXT[] DEFAULT '{}',
+  cart_items JSONB NOT NULL,
+  total_amount DECIMAL(10, 2) NOT NULL,
+  shipping_address TEXT,
+  phone VARCHAR(20),
+  status VARCHAR(50) DEFAULT 'pending',
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
 -- Create indexes for better query performance
 CREATE INDEX idx_products_category ON public.products(category);
 CREATE INDEX idx_products_price ON public.products(price);
@@ -178,3 +193,13 @@ CREATE INDEX idx_cart_items_user_id ON public.cart_items(user_id);
 CREATE INDEX idx_orders_user_id ON public.orders(user_id);
 CREATE INDEX idx_reviews_product_id ON public.reviews(product_id);
 CREATE INDEX idx_favorites_user_id ON public.favorites(user_id);
+CREATE INDEX idx_checkout_details_user_id ON public.checkout_details(user_id);
+
+-- RLS for checkout_details
+ALTER TABLE public.checkout_details ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY "checkout_details_read_own" ON public.checkout_details
+  FOR SELECT USING (auth.uid() = user_id);
+
+CREATE POLICY "checkout_details_insert_own" ON public.checkout_details
+  FOR INSERT WITH CHECK (auth.uid() = user_id);

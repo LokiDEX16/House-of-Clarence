@@ -84,9 +84,9 @@ export default function CartPage() {
               <span>${total.toFixed(2)}</span>
             </div>
 
-            <button className="btn btn-primary w-full mb-3" disabled={cart.length === 0}>
+            <Link href="/checkout" className="btn btn-primary w-full mb-3" onClick={(e) => cart.length === 0 && e.preventDefault()}>
               Proceed to Checkout
-            </button>
+            </Link>
 
             <Link href="/shop" className="btn btn-ghost w-full">
               Continue Shopping
