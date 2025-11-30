@@ -27,9 +27,11 @@ const config: Config = {
       },
     },
   },
-  // Configure DaisyUI via the plugin call so TypeScript's UserConfig
-  // type does not complain about an unknown top-level `daisyui` property.
-  plugins: [daisyui({ themes: ['dark'] })],
+  plugins: [daisyui],
+  // @ts-ignore - DaisyUI config is not typed in Tailwind's UserConfig
+  daisyui: {
+    themes: ['dark'],
+  },
 } satisfies Config;
 
 export default config;
