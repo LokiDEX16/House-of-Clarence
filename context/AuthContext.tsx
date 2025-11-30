@@ -71,11 +71,36 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   };
 
   const signup = async (email: string, password: string) => {
-    const { error } = await supabase.auth.signUp({
-      email,
-      password,
-    });
-    if (error) throw error;
+    try {
+      const { data, error } = await supabase.auth.signUp({
+        email,
+        password,
+      });
+      if (error) throw error;
+
+      // Create user record in public.users table
+      if (data.user) {
+        const { error: userError } = await supabase.from('users').insert({
+          id: data.user.id,
+          email: data.user.email,
+          full_name: '',
+          phone: '',
+          address: '',
+          city: '',
+          state: '',
+          postal_code: '',
+          country: '',
+        });
+
+        if (userError) {
+          console.error('Error creating user profile:', userError);
+          // Don't throw - user auth succeeded, just profile creation failed
+        }
+      }
+    } catch (error) {
+      console.error('Signup error:', error);
+      throw error;
+    }
   };
 
   const logout = async () => {

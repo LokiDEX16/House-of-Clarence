@@ -81,6 +81,33 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
     }
 
     try {
+      // Ensure user exists in users table
+      const { data: userExists } = await supabase
+        .from('users')
+        .select('id')
+        .eq('id', user.id)
+        .single();
+
+      if (!userExists) {
+        // Create user record if it doesn't exist
+        const { error: createUserError } = await supabase.from('users').insert({
+          id: user.id,
+          email: user.email,
+          full_name: '',
+          phone: '',
+          address: '',
+          city: '',
+          state: '',
+          postal_code: '',
+          country: '',
+        });
+
+        if (createUserError) {
+          console.error('Error creating user record:', createUserError);
+          throw new Error('Failed to create user profile');
+        }
+      }
+
       // Check if product already in cart
       const existingItem = cart.find((item) => item.id === product.id);
 
